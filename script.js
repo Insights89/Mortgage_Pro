@@ -857,33 +857,152 @@ document.addEventListener('DOMContentLoaded', () => {
     IntUI.addBtn.addEventListener('click', addIntervention);
 
     function syncDateMin() {
-        if (Inputs.loanStart.value) {
-            const min = new Date(Inputs.loanStart.valueAsDate); min.setDate(min.getDate() + 1);
-            const minStr = min.toISOString().split('T')[0];
-            Inputs.repayStart.min = minStr;
-            IntUI.date.min = minStr;
-            Inputs.fixedStartDate.min = minStr;
-            Inputs.splitStartDate.min = minStr;
-            Inputs.ioStartDate.min = minStr;
+        if (!Inputs.loanStart.value) return;
+        const loanStart = Inputs.loanStart.valueAsDate;
+        const minStr = loanStart.toISOString().split('T')[0];
 
-            if (Inputs.repayStart.valueAsDate <= Inputs.loanStart.valueAsDate) {
-                const adj = new Date(Inputs.loanStart.valueAsDate); adj.setMonth(adj.getMonth() + 1); Inputs.repayStart.valueAsDate = adj;
+        // Helper to update min and correct value if needed
+        const updateDateInput = (input) => {
+            input.min = minStr;
+            if (input.valueAsDate && input.valueAsDate < loanStart) {
+                input.valueAsDate = loanStart; // Reset to start date if before
             }
-            if (!Inputs.fixedStartDate.value) Inputs.fixedStartDate.valueAsDate = new Date(Inputs.loanStart.valueAsDate);
-            if (!Inputs.splitStartDate.value) Inputs.splitStartDate.valueAsDate = new Date(Inputs.loanStart.valueAsDate);
-            if (!Inputs.ioStartDate.value) Inputs.ioStartDate.valueAsDate = new Date(Inputs.loanStart.valueAsDate);
+        };
+
+        updateDateInput(Inputs.repayStart);
+        updateDateInput(Inputs.fixedStartDate);
+        updateDateInput(Inputs.splitStartDate);
+        updateDateInput(Inputs.ioStartDate);
+        updateDateInput(IntUI.date);
+
+        // Ensure repayment start is at least 1 month after if that's the logic (optional, but user just said 'not before')
+        // We actually want Repayment to ideally be after loan start, but 'not before' is satisfied by >=.
+    }
+
+    function checkTermMonths() {
+        let val = parseInt(Inputs.termMonths.value);
+        if (isNaN(val)) val = 0;
+        if (val < 0) val = 0;
+        if (val > 11) val = 11;
+        Inputs.termMonths.value = val;
+    }
+
+    function saveState() {
+        const state = {
+            amount: Inputs.amount.value,
+            rate: Inputs.rate.value,
+            termYears: Inputs.termYears.value,
+            termMonths: Inputs.termMonths.value,
+            freq: Inputs.freq.value,
+            offset: Inputs.offset.value,
+            redraw: Inputs.redraw.value,
+            fees: Inputs.fees.value,
+            loanStart: Inputs.loanStart.value,
+            repayStart: Inputs.repayStart.value,
+            repaymentOverride: Inputs.repaymentOverride.value,
+            propValue: Inputs.propValue.value,
+            propGrowth: Inputs.propGrowth.value,
+            rateMode: rateMode,
+            splitType: splitType,
+            fixedYears: Inputs.fixedYears.value,
+            fixedRate: Inputs.fixedRateVal.value,
+            fixedStart: Inputs.fixedStartDate.value,
+            ioYears: Inputs.ioYears.value,
+            ioRate: Inputs.ioRateVal.value,
+            ioStart: Inputs.ioStartDate.value,
+            splitPercent: Inputs.splitPercent.value,
+            splitValue: Inputs.splitValue.value,
+            splitYears: Inputs.splitYears.value,
+            splitRate: Inputs.splitRate.value,
+            splitStart: Inputs.splitStartDate.value,
+            interventions: localInterventions,
+            chartView: chartView,
+            ledgerView: ledgerView
+        };
+        localStorage.setItem('mortgage_calc_state', JSON.stringify(state));
+    }
+
+    function loadState() {
+        const saved = localStorage.getItem('mortgage_calc_state');
+        if (!saved) return false;
+        try {
+            const s = JSON.parse(saved);
+            if (s.amount) Inputs.amount.value = s.amount;
+            if (s.rate) Inputs.rate.value = s.rate;
+            if (s.termYears) Inputs.termYears.value = s.termYears;
+            if (s.termMonths) Inputs.termMonths.value = s.termMonths;
+            if (s.freq) Inputs.freq.value = s.freq;
+            if (s.offset) Inputs.offset.value = s.offset;
+            if (s.redraw) Inputs.redraw.value = s.redraw;
+            if (s.fees) Inputs.fees.value = s.fees;
+            if (s.loanStart) Inputs.loanStart.value = s.loanStart;
+            if (s.repayStart) Inputs.repayStart.value = s.repayStart;
+            if (s.repaymentOverride) Inputs.repaymentOverride.value = s.repaymentOverride;
+            if (s.propValue) Inputs.propValue.value = s.propValue;
+            if (s.propGrowth) Inputs.propGrowth.value = s.propGrowth;
+
+            if (s.fixedYears) Inputs.fixedYears.value = s.fixedYears;
+            if (s.fixedRate) Inputs.fixedRateVal.value = s.fixedRate;
+            if (s.fixedStart) Inputs.fixedStartDate.value = s.fixedStart;
+
+            if (s.ioYears) Inputs.ioYears.value = s.ioYears;
+            if (s.ioRate) Inputs.ioRateVal.value = s.ioRate;
+            if (s.ioStart) Inputs.ioStartDate.value = s.ioStart;
+
+            if (s.splitPercent) Inputs.splitPercent.value = s.splitPercent;
+            if (s.splitValue) Inputs.splitValue.value = s.splitValue;
+            if (s.splitYears) Inputs.splitYears.value = s.splitYears;
+            if (s.splitRate) Inputs.splitRate.value = s.splitRate;
+            if (s.splitStart) Inputs.splitStartDate.value = s.splitStart;
+
+            if (s.interventions) {
+                localInterventions = s.interventions.map(i => ({ ...i, date: new Date(i.date) }));
+            }
+            if (s.rateMode) setRateMode(s.rateMode);
+            if (s.splitType) setSplitType(s.splitType);
+
+            if (s.chartView) {
+                chartView = s.chartView;
+                document.getElementById('btn-chart-standard').classList.toggle('active', chartView === 'standard');
+                document.getElementById('btn-chart-yearly').classList.toggle('active', chartView === 'yearly');
+            }
+            if (s.ledgerView) {
+                ledgerView = s.ledgerView;
+                document.querySelectorAll('.ledger-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+                if (ledgerView === 'monthly') document.getElementById('btn-ledger-monthly').classList.add('active');
+                else if (ledgerView === 'yearly') document.getElementById('btn-ledger-yearly').classList.add('active');
+                else document.getElementById('btn-ledger-standard').classList.add('active');
+            }
+
+            renderInterventionList();
+            return true;
+        } catch (e) {
+            console.error("Failed to load state", e);
+            return false;
         }
     }
 
     function resetToDefaults() {
+        localStorage.removeItem('mortgage_calc_state');
         Inputs.amount.value = 375000; Inputs.rate.value = 5.29; Inputs.termYears.value = 25; Inputs.termMonths.value = 0; Inputs.freq.value = 'monthly'; Inputs.offset.value = 100000; Inputs.redraw.value = 200; Inputs.fees.value = 299; Inputs.repaymentOverride.value = '';
         Inputs.loanStart.valueAsDate = new Date('2026-01-01'); Inputs.repayStart.valueAsDate = new Date('2026-02-01'); Inputs.propValue.value = 500000; Inputs.propGrowth.value = 5.0;
-        localInterventions = []; setRateMode('variable'); setSplitType('percent'); syncDateMin(); update();
+        localInterventions = []; setRateMode('variable'); setSplitType('percent');
+        renderInterventionList();
+        syncDateMin(); update();
+        saveState();
     }
 
     document.getElementById('reset-btn').addEventListener('click', resetToDefaults);
-    [Inputs.amount, Inputs.rate, Inputs.termYears, Inputs.termMonths, Inputs.offset, Inputs.redraw, Inputs.fees, Inputs.propValue, Inputs.propGrowth, Inputs.repaymentOverride, Inputs.fixedRateVal, Inputs.splitPercent, Inputs.splitValue, Inputs.splitRate, Inputs.ioRateVal].forEach(el => el.addEventListener('input', update));
-    [Inputs.freq, Inputs.loanStart, Inputs.repayStart, Inputs.fixedYears, Inputs.fixedStartDate, Inputs.splitYears, Inputs.splitStartDate, Inputs.ioYears, Inputs.ioStartDate].forEach(el => el.addEventListener('change', update));
+    [Inputs.amount, Inputs.rate, Inputs.termYears, Inputs.termMonths, Inputs.offset, Inputs.redraw, Inputs.fees, Inputs.propValue, Inputs.propGrowth, Inputs.repaymentOverride, Inputs.fixedRateVal, Inputs.splitPercent, Inputs.splitValue, Inputs.splitRate, Inputs.ioRateVal].forEach(el => el.addEventListener('input', () => {
+        if (el === Inputs.termMonths) checkTermMonths();
+        update();
+        saveState();
+    }));
+    [Inputs.freq, Inputs.loanStart, Inputs.repayStart, Inputs.fixedYears, Inputs.fixedStartDate, Inputs.splitYears, Inputs.splitStartDate, Inputs.ioYears, Inputs.ioStartDate].forEach(el => el.addEventListener('change', () => {
+        if (el === Inputs.loanStart) syncDateMin();
+        update();
+        saveState();
+    }));
 
     document.getElementById('btn-chart-standard').addEventListener('click', () => { chartView = 'standard'; document.getElementById('btn-chart-standard').classList.add('active'); document.getElementById('btn-chart-yearly').classList.remove('active'); update(); });
     document.getElementById('btn-chart-yearly').addEventListener('click', () => { chartView = 'yearly'; document.getElementById('btn-chart-yearly').classList.add('active'); document.getElementById('btn-chart-standard').classList.remove('active'); update(); });
@@ -891,5 +1010,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-ledger-monthly').addEventListener('click', (e) => { ledgerView = 'monthly'; document.querySelectorAll('.ledger-toggle .toggle-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active'); renderLedger(engine.history); });
     document.getElementById('btn-ledger-yearly').addEventListener('click', (e) => { ledgerView = 'yearly'; document.querySelectorAll('.ledger-toggle .toggle-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active'); renderLedger(engine.history); });
 
-    syncDateMin(); update();
+    if (!loadState()) {
+        resetToDefaults(); // Initialize defaults if no state
+    } else {
+        syncDateMin(); update(); // Ensure logic correct after load
+    }
 });
