@@ -328,31 +328,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentBalance < 0) currentBalance = 0;
                 if (!neutralityDate && (currentOffset + currentRedraw) >= currentBalance && currentBalance > 0) neutralityDate = new Date(currentDate);
 
-                // Interest and Principal (Daily Calculation)
-		let interest = 0;
-		const effectivePrincipal = Math.max(0, currentBalance - currentOffset - currentRedraw);
-
-		// Calculate actual days in this period
-		const nextDate = new Date(currentDate);
-		if (this.freq === 'monthly') {
-    		nextDate.setMonth(nextDate.getMonth() + 1);
-		} else {
-		    nextDate.setDate(nextDate.getDate() + daysPerPeriod);
-		}
-		const daysInPeriod = Math.round((nextDate - currentDate) / (1000 * 60 * 60 * 24));
-
-		if (isInsideSplitTerm && !isInsideFixedTerm) {
-		    const initialSplitRatio = splitAmount / Math.max(1, this.P);
-		    const sPortion = Math.min(currentBalance * initialSplitRatio, currentBalance);
- 		   const effSPortion = Math.max(0, sPortion - (currentOffset + currentRedraw) * (sPortion / currentBalance));
- 		   const effVPortion = Math.max(0, effectivePrincipal - effSPortion);
-  		  // Daily rate calculation for split loan
-  		  interest = (effSPortion * (this.splitRate / 100 / 365) * daysInPeriod) + 
-               (effVPortion * (currentRate / 100 / 365) * daysInPeriod);
-		} else {
-  		  // Daily rate calculation for standard loan
-   		 interest = effectivePrincipal * (effectiveRate / 100 / 365) * daysInPeriod;
-		}		
+              // Interest and Principal
+				let interest = 0;
+				const effectivePrincipal = Math.max(0, currentBalance - currentOffset - currentRedraw);
+				if (isInsideSplitTerm && !isInsideFixedTerm) {
+				    const initialSplitRatio = splitAmount / Math.max(1, this.P);
+				    const sPortion = Math.min(currentBalance * initialSplitRatio, currentBalance);
+				    const effSPortion = Math.max(0, sPortion - (currentOffset + currentRedraw) * (sPortion / currentBalance));
+				    const effVPortion = Math.max(0, effectivePrincipal - effSPortion);
+				    interest = (effSPortion * (this.splitRate / 100 / ppy)) + (effVPortion * (currentRate / 100 / ppy));
+				} else {
+				    interest = effectivePrincipal * (effectiveRate / 100 / ppy);
+				}
 
                 // Adjust repayment for IO
                 if (isInsideIOTerm && !this.repaymentOverride) {
@@ -1269,3 +1256,4 @@ document.addEventListener('DOMContentLoaded', () => {
         syncDateMin(); update(); // Ensure logic correct after load
     }
 });
+
